@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#15122a">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Hustle Quest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header id="hud" class="hud"></header>
+<main id="view" class="view" tabindex="-1"></main>
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <button data-tab="quests"><span class="ti">📜</span><span>Quests</span></button>
+  <button data-tab="hunt"><span class="ti">🎯</span><span>Hunt</span></button>
+  <button data-tab="hero" class="tab-hero"><span class="ti">🛡️</span><span>Hero</span></button>
+  <button data-tab="habits"><span class="ti">🔥</span><span>Habits</span></button>
+  <button data-tab="stats"><span class="ti">📊</span><span>Stats</span></button>
+</nav>
+<div id="sheet-wrap" class="sheet-wrap" hidden><div class="sheet-bg"></div><section id="sheet" class="sheet" role="dialog" aria-modal="true"></section></div>
+<div id="fx" class="fx-layer" aria-hidden="true"></div>
+<canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -60,7 +60,10 @@ export function defaults() {
   return {
     v: 1,
     profile: { name: 'Hero', currency: '€', activeClients: 0, sound: true, vibrate: true, onboarded: false },
-    xp: 0, gold: 0, gems: 0, revenue: 0,
+    xp: 0, gold: 0, gems: 0, revenue: 0, hp: 10, lastDay: null,
+    days: {},            // 'YYYY-MM-DD' -> {xp, mind, body, soul, hustle, craft, wealth}
+    payments: [],        // {t, amount, client}
+    pendingCall: null,   // {leadId, t}
     combo: { n: 0, at: 0 },
     log: [],             // {t, type, stat, xp, gold, n, meta}
     counters: {},        // {'YYYY-MM-DD': {call, email, dm, inperson, warm, leads, booked, fulfil}}
