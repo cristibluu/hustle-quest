@@ -15,7 +15,7 @@ export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const today = () => R.dayKey();
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const money = n => `${S.profile.currency}${Math.round(n).toLocaleString('en')}`;
+export const money = n => `${esc(S.profile.currency)}${Math.round(n).toLocaleString('en')}`;
 export function persist() { if (!save(S)) fx.toast('⚠️ Could not save — storage full? Export a backup.'); }
 
 export const OUTREACH = ['call', 'email', 'dm', 'inperson', 'warm'];
@@ -232,8 +232,12 @@ function openSettings() {
     $('#s-exp', sh).onclick = () => download(`hustle-quest-backup-${today()}.json`, exportJson(S), 'application/json');
     $('#s-imp', sh).onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
-      try { const ns = importJson(await f.text()); Object.keys(S).forEach(k => delete S[k]); Object.assign(S, ns); persist(); closeSheet(); renderHud(); render(); fx.toast('✅ Backup restored'); }
-      catch { fx.toast('❌ That file is not a Hustle Quest backup.'); }
+      let ns;
+      try { ns = importJson(await f.text()); } catch { e.target.value = ''; return fx.toast('❌ That file is not a Hustle Quest backup. Nothing was changed.'); }
+      if (!confirm('Replace your current progress with this backup? Your current data is kept as a safety copy.')) { e.target.value = ''; return; }
+      try { localStorage.setItem('hq.v1.preimport', JSON.stringify(S)); } catch { /* storage full */ }
+      Object.keys(S).forEach(k => delete S[k]); Object.assign(S, ns); S.lastDay = today(); S.pendingCall = null;
+      persist(); closeSheet(); renderHud(); render(); fx.toast('✅ Backup restored');
     };
     $('#s-reset', sh).onclick = () => {
       if (!confirm('Erase ALL progress on this phone? Export a backup first if unsure.')) return;
@@ -279,15 +283,24 @@ function onboard() {
 
 // ---------------- boot ----------------
 fx.setFxPrefs({ sound: S.profile.sound, vibrate: S.profile.vibrate });
+if (S.loadFailed) { delete S.loadFailed; setTimeout(() => fx.toast('⚠️ Saved data could not be read. A copy was kept; import a backup to restore.'), 800); }
 rollover();
 renderHud(); render();
 if (!S.profile.onboarded) onboard();
 scheduleNotifs();
 setInterval(renderHud, 30000);
+// a call may have killed the app; ask on next open (but forget calls older than 3h)
+function checkPendingCall() {
+  const pc = S.pendingCall; if (!pc) return;
+  const age = Date.now() - pc.t;
+  if (age > 3 * 3600000) { S.pendingCall = null; persist(); }
+  else if (age > 2500) askCallOutcome();
+}
+checkPendingCall();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (S.lastDay !== today()) { rollover(); render(); }
   renderHud(); scheduleNotifs();
-  if (S.pendingCall && Date.now() - S.pendingCall.t > 2500) askCallOutcome();
+  checkPendingCall();
 });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -13,15 +13,18 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-// Network first for our files (so updates land fast), cache fallback when offline.
+// Network first (so updates land fast), but give up after 2.5s on weak signal and use the cache.
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  const net = fetch(req).then(res => {
+    if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+    return res;
+  });
+  const cached = () => caches.match(req, { ignoreSearch: true });
+  const slow = new Promise(resolve => setTimeout(() => cached().then(r => r && resolve(r)), 2500));
   e.respondWith(
-    fetch(req).then(res => {
-      if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
-      return res;
-    }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html')))
+    Promise.race([net, slow]).catch(() => cached().then(r => r || caches.match('index.html')))
   );
 });
 self.addEventListener('notificationclick', e => {

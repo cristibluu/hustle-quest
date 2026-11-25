@@ -1,4 +1,4 @@
-import { S, R, $, $$, esc, money, award, unaward, openSheet, closeSheet, today, persist, render, fx, pt, renderHud, uid, dayCounters, outreachProgress, activeClients } from '../app.js';
+import { S, R, $, $$, esc, money, award, unaward, openSheet, closeSheet, today, persist, render, fx, pt, renderHud, uid, dayCounters, outreachProgress, activeClients, weekStart } from '../app.js';
 import { KCS_QUESTIONS } from '../state.js';
 import { logPayment } from './hero.js';
 
@@ -56,7 +56,7 @@ function outreach(el) {
   $$('[data-a]', el).forEach(b => b.onclick = e => {
     if (e.target.dataset.undo) {
       const k = e.target.dataset.undo, cc = dayCounters();
-      if (cc[k] > 0) { cc[k]--; unaward(k); fx.beep('tick'); render(); }
+      if (cc[k] > 0) { cc[k]--; unaward(k); persist(); fx.beep('tick'); render(); }
       return;
     }
     hit(b.dataset.a, 1, e);
@@ -73,7 +73,9 @@ function hit(k, n, e) {
   const a = ACTIONS.find(x => x.k === k);
   award({ stat: 'hustle', xp: a.xp * n, type: k, n, at: pt(e) });
   const after = outreachProgress();
-  if (before.done < before.amount && after.done >= after.amount) {
+  const tk = 'target@' + (after.per === 'week' ? weekStart() : today());
+  if (before.done < before.amount && after.done >= after.amount && !S.quests.daily[tk]) {
+    S.quests.daily[tk] = true;
     award({ stat: 'hustle', xp: 200, type: 'target', gems: 2, noCombo: true });
     fx.beep('boss'); setTimeout(() => fx.bigMoment('TARGET SMASHED', `${after.amount} outreaches · +2 💎`, '💥'), 500);
   }
@@ -121,7 +123,7 @@ function leads(el) {
     <div style="margin-top:12px">${list.map(l => `
       <div class="lead">
         <div class="grow" data-edit="${l.id}">
-          <div class="row" style="gap:6px"><b>${esc(l.name)}</b><span class="tag ${l.status}">${l.status === 'new' ? `${l.attempts || 0} tries` : l.status}</span></div>
+          <div class="row" style="gap:6px"><b>${esc(l.name)}</b><span class="tag ${esc(l.status)}">${l.status === 'new' ? `${l.attempts || 0} tries` : l.status}</span></div>
           <div class="dim" style="font-size:12px">${esc(l.niche || '')} ${l.phone ? '· ' + esc(l.phone) : ''}</div>
           ${l.note ? `<div style="font-size:12px;margin-top:2px">${esc(l.note)}</div>` : ''}
         </div>
@@ -204,7 +206,7 @@ function clients(el) {
     const c = S.clients.find(x => x.id === b.dataset.launch); c.launched = Date.now();
     const onTime = c.launched <= c.signed + 7 * 86400000;
     award({ stat: 'craft', xp: onTime ? 300 : 120, type: 'launch', at: pt(e), gems: onTime ? 2 : 0 });
-    const q = S.quests.main.find(x => x.id === 'pg6'); if (q && !q.done && onTime) q.done = true;
+    const q = S.quests.main.find(x => x.id === 'pg6'); if (q && !q.done && onTime) { q.done = true; q.awarded = true; }
     if (onTime) setTimeout(() => fx.bigMoment('LAUNCHED ON TIME', `${c.name} is live · +2 💎`, '🚀'), 400);
     render();
   });
@@ -227,8 +229,8 @@ function addClient() {
       S.clients.unshift({ id: uid(), name, value: parseFloat($('#c-v', sh).value) || 0, signed: Date.now(), active: true, launched: null, kcs: Array(8).fill('') });
       closeSheet();
       award({ stat: 'hustle', xp: 400, type: 'client', at: pt(e), gems: 3, noCombo: true });
-      if (first) { const q = S.quests.main.find(x => x.id === 'pg5'); if (q) q.done = true; }
-      if (activeClients() >= 4) { const q = S.quests.main.find(x => x.id === 'kc5'); if (q) q.done = true; }
+      if (first) { const q = S.quests.main.find(x => x.id === 'pg5'); if (q) { q.done = true; q.awarded = true; } }
+      if (activeClients() >= 4) { const q = S.quests.main.find(x => x.id === 'kc5'); if (q) { q.done = true; q.awarded = true; } }
       persist(); fx.beep('boss');
       setTimeout(() => fx.bigMoment(first ? 'FIRST CLIENT!' : 'CLIENT SIGNED', `${name} · +3 💎 · launch within 7 days`, first ? '👹' : '🤝'), 400);
       render();
@@ -250,7 +252,7 @@ function kcs(c) {
       closeSheet();
       if (after > before) award({ stat: 'craft', xp: (after - before) * 20, type: 'kcs', at: pt(e) });
       if (after === 8 && before < 8) {
-        const q = S.quests.main.find(x => x.id === 'kc1'); if (q && !q.done) q.done = true;
+        const q = S.quests.main.find(x => x.id === 'kc1'); if (q && !q.done) { q.done = true; q.awarded = true; }
         persist(); setTimeout(() => fx.bigMoment('KCS MAPPED', 'Upsell this client now, then start KCS outreach.', '🏆'), 400);
       }
       persist(); render();

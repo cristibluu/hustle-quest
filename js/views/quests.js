@@ -1,4 +1,7 @@
-import { S, R, $, $$, esc, award, openSheet, closeSheet, today, persist, render, fx, pt, renderHud, uid, dayCounters, outreachProgress, activeClients, go } from '../app.js';
+import { S, R, $, $$, esc, award, openSheet, closeSheet, today, persist, render, fx, pt, renderHud, uid, dayCounters, outreachProgress, activeClients, go, weekStart } from '../app.js';
+
+// weekly outreach (4+ clients) is claimed once per week, everything else once per day
+const isClaimed = (q, cl) => q.claimKey ? !!S.quests.daily[q.claimKey] : !!cl[q.id];
 import { blocksFor, currentBlock, nextBlock } from '../blocks.js';
 
 const LEADS_TARGET = 20;
@@ -13,7 +16,8 @@ export function dailyQuests() {
   ];
   if (activeClients() > 0) q.push({ id: 'fulfil', icon: '🛠️', name: '4 hours of client fulfillment', sub: '4–8am is ideal', have: c.fulfil, need: 4, xp: 100, stat: 'craft', fulfil: true });
   q.push({ id: 'habits', icon: '🔥', name: 'Complete 3 habits', sub: 'Mind · body · soul', have: habitsDone, need: 3, xp: 60, stat: 'soul', go: 'habits' });
-  q.push({ id: 'checkin', icon: '🌙', name: 'End-of-day check-in', sub: 'Where are we at today?', have: S.checkins[t] ? 1 : 0, need: 1, xp: 0, stat: 'mind', checkin: true });
+  q[0].claimKey = op.per === 'week' ? 'out@' + weekStart() : null;
+  q.push({ id: 'checkin', icon: '🌙', name: 'End-of-day check-in', sub: 'Where are we at today?', have: S.checkins[checkinDay()] ? 1 : 0, need: 1, xp: 0, stat: 'mind', checkin: true });
   return q;
 }
 
@@ -23,7 +27,7 @@ export default function quests(root) {
   const cur = currentBlock(blocks, now), nxt = nextBlock(blocks, now);
   const claimed = S.quests.daily[t] || {};
   const dq = dailyQuests();
-  const allClaimed = dq.every(q => claimed[q.id]);
+  const allClaimed = dq.every(q => isClaimed(q, claimed));
   const stages = ['Bootcamp', 'Proving Ground', 'Killer Case Study'];
   const stageIdx = stages.findIndex(s => S.quests.main.some(q => q.stage === s && !q.done));
   const curStage = stageIdx < 0 ? 'Complete' : stages[stageIdx];
@@ -41,7 +45,7 @@ export default function quests(root) {
 
     <div class="sec-h"><div><h2>Daily quests</h2><p>${allClaimed ? 'Perfect day secured 💎' : 'Finish all five for a Perfect Day bonus'}</p></div></div>
     <div id="dq">${dq.map(q => {
-      const done = q.have >= q.need, cl = claimed[q.id];
+      const done = q.have >= q.need, cl = isClaimed(q, claimed);
       return `<div class="q ${cl ? 'done' : ''}" data-q="${q.id}">
         <span class="qi">${q.icon}</span>
         <div class="grow"><div class="qt">${esc(q.name)}</div><div class="qs">${q.have}/${q.need} · ${esc(q.sub)}</div><div class="mini"><i style="width:${Math.min(100, (q.have / q.need) * 100)}%"></i></div></div>
@@ -58,9 +62,9 @@ export default function quests(root) {
 
     <div class="sec-h"><div><h2>Side quests</h2><p>One-off tasks you set yourself</p></div><button class="icon-btn" id="addq" aria-label="Add side quest">＋</button></div>
     <div id="side">${S.quests.custom.filter(q => !q.done || q.doneOn === t).map(q => `
-      <div class="q ${q.done ? 'done' : ''}"><span class="qi">${q.icon || '⚔️'}</span>
-        <div class="grow"><div class="qt">${esc(q.name)}</div><div class="qs">${q.diff} · ${R.STATS.find(s => s.id === q.stat)?.name}</div></div>
-        <span class="reward">+${DIFF[q.diff]} XP</span>
+      <div class="q ${q.done ? 'done' : ''}"><span class="qi">${esc(q.icon || '⚔️')}</span>
+        <div class="grow"><div class="qt">${esc(q.name)}</div><div class="qs">${esc(q.diff)} · ${R.STATS.find(s => s.id === q.stat)?.name}</div></div>
+        <span class="reward">+${DIFF[q.diff] || 20} XP</span>
         <button class="check ${q.done ? 'on' : ''}" data-side="${q.id}" aria-label="Complete">${q.done ? '✓' : ''}</button></div>`).join('') || `<div class="empty">No side quests. Add one: "Write cold email script", "Film a reel"…</div>`}</div>
 
     <div class="sec-h"><div><h2>Main quest line</h2><p>Current stage: <b class="gold">${curStage}</b></p></div></div>
@@ -77,13 +81,15 @@ export default function quests(root) {
   $('#gohunt')?.addEventListener('click', () => go('hunt'));
   $$('[data-go]', root).forEach(b => b.onclick = () => go(b.dataset.go));
   $$('[data-claim]', root).forEach(b => b.onclick = e => {
-    const q = dq.find(x => x.id === b.dataset.claim);
-    S.quests.daily[t] = { ...(S.quests.daily[t] || {}), [q.id]: true };
+    const d = today(), q = dailyQuests().find(x => x.id === b.dataset.claim);
+    if (!q || q.have < q.need || isClaimed(q, S.quests.daily[d] || {})) return render();
+    S.quests.daily[d] = { ...(S.quests.daily[d] || {}), [q.id]: true };
+    if (q.claimKey) S.quests.daily[q.claimKey] = true;
     award({ stat: q.stat, xp: q.xp, type: 'daily', meta: q.id, at: pt(e), gold: 15 });
     perfectDayCheck(); render();
   });
   $$('[data-fulfil]', root).forEach(b => b.onclick = e => {
-    dayCounters(t).fulfil++;
+    dayCounters(today()).fulfil++;
     award({ stat: 'craft', xp: 25, type: 'fulfil', at: pt(e) });
     render();
   });
@@ -92,14 +98,16 @@ export default function quests(root) {
   $$('[data-side]', root).forEach(b => b.onclick = e => {
     const q = S.quests.custom.find(x => x.id === b.dataset.side);
     if (q.done) return;
-    q.done = true; q.doneOn = t;
-    award({ stat: q.stat, xp: DIFF[q.diff], type: 'side', meta: q.name, at: pt(e) });
+    q.done = true; q.doneOn = today();
+    award({ stat: q.stat, xp: DIFF[q.diff] || 20, type: 'side', meta: q.name, at: pt(e) });
     render();
   });
   $$('[data-main]', root).forEach(b => b.onclick = e => {
     const q = S.quests.main.find(x => x.id === b.dataset.main);
     if (q.done) { if (confirm('Mark this quest as not done? Its XP stays.')) { q.done = false; persist(); render(); } return; }
     q.done = true;
+    if (q.awarded) { persist(); return render(); }
+    q.awarded = true;
     award({ stat: q.stage === 'Bootcamp' ? 'craft' : 'hustle', xp: q.xp, type: 'main', meta: q.id, at: pt(e), gems: q.boss ? 5 : 1 });
     if (q.boss) { fx.beep('boss'); setTimeout(() => fx.bigMoment('BOSS DEFEATED', `${q.name} · +5 💎`, '👹'), 400); }
     const stg = q.stage;
@@ -111,7 +119,7 @@ export default function quests(root) {
 function perfectDayCheck() {
   const t = today(), cl = S.quests.daily[t] || {};
   const dq = dailyQuests();
-  if (!cl.perfect && dq.every(q => cl[q.id] || (q.checkin && q.have))) {
+  if (!cl.perfect && dq.every(q => isClaimed(q, cl) || (q.checkin && q.have))) {
     cl.perfect = true; S.quests.daily[t] = cl;
     award({ stat: 'soul', xp: 100, type: 'perfect', gems: 2, noCombo: true });
     setTimeout(() => fx.bigMoment('PERFECT DAY', '+100 XP · +2 💎', '🌟'), 500);
@@ -152,8 +160,10 @@ function addSide() {
   });
 }
 
+// a check-in after midnight (before 4am) still belongs to the day that just ended
+export const checkinDay = () => new Date().getHours() < 4 ? R.addDays(today(), -1) : today();
 export function checkin() {
-  const t = today(), c = dayCounters(t), op = outreachProgress();
+  const t = checkinDay(), c = dayCounters(t), op = outreachProgress();
   openSheet(`
     <h2>🌙 Check-in</h2>
     <p class="dim">Today: ${op.done}/${op.amount} outreach · ${c.leads} leads · ${c.booked} calls booked</p>

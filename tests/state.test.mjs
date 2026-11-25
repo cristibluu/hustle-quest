@@ -30,3 +30,22 @@ test('save + load roundtrip, export/import', () => {
   assert.equal(back.leads[0].name, 'Pizza X');
   assert.throws(() => importJson('nope'));
 });
+
+test('importJson rejects files that are not Hustle Quest backups', () => {
+  assert.throws(() => importJson('{}'));
+  assert.throws(() => importJson(JSON.stringify({ name: 'other app', settings: {} })));
+  assert.throws(() => importJson(JSON.stringify({ state: { foo: 1 } })));
+});
+
+test('migrate normalises broken nested items', () => {
+  const s = migrate({ xp: 1, habits: [{ id: 'h', name: 'x', target: 1 }], clients: [{ id: 'c', name: 'c' }], quests: null });
+  assert.deepEqual(s.habits[0].log, {});
+  assert.equal(s.clients[0].kcs.length, 8);
+  assert.ok(s.quests.main.length > 0);
+});
+
+test('load keeps a copy of unreadable data before falling back', () => {
+  const st = mem({ [KEY]: '{broken' });
+  load(st);
+  assert.ok(Object.keys(st.d).some(k => k.startsWith(KEY + '.bad-')));
+});

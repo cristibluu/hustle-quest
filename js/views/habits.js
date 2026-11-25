@@ -18,7 +18,7 @@ export default function habits(root) {
       ${S.habits.filter(h => h.stat === g.id).map(h => {
         const v = h.log[t] || 0, full = v >= h.target, st = R.streak(doneDates(h), t);
         return `<div class="habit ${full ? 'full' : ''}" style="--c:${color(h.stat)}">
-          <span class="hi">${h.icon}</span>
+          <span class="hi">${esc(h.icon)}</span>
           <div class="grow" data-edit="${h.id}">
             <div style="font-weight:500">${esc(h.name)}</div>
             <div class="row" style="gap:8px;font-size:12px"><span class="dim">${v.toLocaleString('en')}/${h.target.toLocaleString('en')} ${esc(h.unit)}</span>${st.current ? `<span class="flame">🔥${st.current}</span>` : ''}</div>
@@ -33,7 +33,7 @@ export default function habits(root) {
   $$('[data-edit]', root).forEach(d => d.onclick = () => editHabit(S.habits.find(h => h.id === d.dataset.edit)));
   $$('[data-plus]', root).forEach(b => b.onclick = e => {
     const h = S.habits.find(x => x.id === b.dataset.plus);
-    if ((h.log[t] || 0) >= h.target) { fx.beep('tick'); return; }
+    if ((h.log[today()] || 0) >= h.target) { fx.beep('tick'); return; }
     addProgress(h, step(h), e);
   });
 }
@@ -41,7 +41,9 @@ export default function habits(root) {
 function addProgress(h, n, e) {
   const t = today(), before = h.log[t] || 0;
   h.log[t] = Math.max(0, before + n);
-  if (before < h.target && h.log[t] >= h.target) {
+  h.awarded = h.awarded || {};
+  if (before < h.target && h.log[t] >= h.target && !h.awarded[t]) {
+    h.awarded[t] = true;
     const st = R.streak(doneDates(h), t).current;
     const bonus = st >= 30 ? 3 : st >= 7 ? 2 : 1;
     award({ stat: h.stat, xp: h.xp * bonus, type: 'habit', meta: h.id, at: pt(e) });

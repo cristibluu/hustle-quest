@@ -60,7 +60,7 @@ export default function stats(root) {
     <div class="ach">${ACHIEVEMENTS.map(a => `<div class="${S.achievements[a.id] ? 'got' : ''}"><b>${a.icon}</b>${esc(a.name)}</div>`).join('')}</div>
 
     <div class="sec-h"><div><h2>Reward shop</h2><p>Spend gold on real-life treats you set</p></div><button class="icon-btn" id="adds" aria-label="Add reward">＋</button></div>
-    ${S.shop.map(s => `<div class="shop-i"><span style="font-size:26px">${s.icon}</span><div class="grow"><b>${esc(s.name)}</b><div class="dim" style="font-size:12px">${S.bought.filter(b => b.id === s.id).length}× claimed</div></div>
+    ${S.shop.map(s => `<div class="shop-i"><span style="font-size:26px">${esc(s.icon)}</span><div class="grow"><b>${esc(s.name)}</b><div class="dim" style="font-size:12px">${S.bought.filter(b => b.id === s.id).length}× claimed</div></div>
       <button class="btn small ${S.gold >= s.cost ? 'primary' : ''}" data-buy="${s.id}" ${S.gold >= s.cost ? '' : 'disabled'}>🪙 ${s.cost}</button>
       <button class="btn small ghost" data-dels="${s.id}" aria-label="Remove reward">✕</button></div>`).join('')}
 

@@ -74,7 +74,8 @@ export function confetti(n = 140) {
 export function bigMoment(title, sub, emoji = '⭐') {
   const el = document.createElement('div');
   el.className = 'levelup';
-  el.innerHTML = `<div style="font-size:64px">${emoji}</div><h1>${title}</h1><p>${sub}</p><p class="dim" style="margin-top:24px">Tap to continue</p>`;
+  el.innerHTML = `<div style="font-size:64px"></div><h1></h1><p></p><p class="dim" style="margin-top:24px">Tap to continue</p>`;
+  el.children[0].textContent = emoji; el.children[1].textContent = title; el.children[2].textContent = sub;
   el.onclick = () => el.remove();
   document.body.appendChild(el);
   confetti(); buzz([40, 60, 40, 60, 120]);

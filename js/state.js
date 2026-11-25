@@ -85,7 +85,9 @@ function deepFill(base, data) {
   if (!isObj(data)) return base;
   const out = { ...base };
   for (const k of Object.keys(data)) {
-    out[k] = isObj(base[k]) && isObj(data[k]) ? deepFill(base[k], data[k]) : data[k];
+    if (data[k] == null && base[k] != null) continue;
+    if (Array.isArray(base[k]) && !Array.isArray(data[k])) continue;
+    out[k] =isObj(base[k]) && isObj(data[k]) ? deepFill(base[k], data[k]) : data[k];
   }
   return out;
 }
@@ -95,15 +97,26 @@ export function migrate(obj) {
   // add any new main quests introduced in later versions
   const have = new Set((s.quests.main || []).map(q => q.id));
   MAIN_QUESTS.forEach(q => { if (!have.has(q.id)) s.quests.main.push({ ...q, done: false }); });
+  // normalise nested items that views index into
+  s.habits = s.habits.filter(isObj).map(h => ({ ...h, log: isObj(h.log) ? h.log : {}, awarded: isObj(h.awarded) ? h.awarded : {}, target: Math.max(1, +h.target || 1) }));
+  s.clients = s.clients.filter(isObj).map(c => ({ ...c, kcs: Array.from({ length: 8 }, (_, i) => (Array.isArray(c.kcs) && c.kcs[i]) || '') }));
+  s.leads = s.leads.filter(isObj);
+  s.quests.custom = (Array.isArray(s.quests.custom) ? s.quests.custom : []).filter(isObj);
+  if (!isObj(s.quests.daily)) s.quests.daily = {};
   return s;
 }
 
 export function load(storage = globalThis.localStorage) {
+  let raw = null;
   try {
-    const raw = storage && storage.getItem(KEY);
+    raw = storage && storage.getItem(KEY);
     if (!raw) return defaults();
     return migrate(JSON.parse(raw));
-  } catch { return defaults(); }
+  } catch {
+    // keep the unreadable data so it can be recovered, then start clean
+    try { if (raw) storage.setItem(`${KEY}.bad-${Date.now()}`, raw); } catch { /* storage full */ }
+    const d = defaults(); d.loadFailed = true; return d;
+  }
 }
 
 export function save(state, storage = globalThis.localStorage) {
@@ -115,6 +128,6 @@ export const exportJson = s => JSON.stringify({ app: 'hustle-quest', at: new Dat
 export function importJson(text) {
   const o = JSON.parse(text);
   const st = o && o.state ? o.state : o;
-  if (!isObj(st)) throw new Error('Not a Hustle Quest backup');
+  if (!isObj(st) || typeof st.xp !== 'number' || !Array.isArray(st.habits)) throw new Error('Not a Hustle Quest backup');
   return migrate(st);
 }
